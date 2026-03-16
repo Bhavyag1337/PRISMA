@@ -34,8 +34,8 @@ app.add_middleware(
 )
 
 @app.get("/")
-def read_root():
-    return {"message": "Welcome to PRISMA API"}
+def read_root(db: Session = Depends(get_db)):
+    return {"message": "Connected to Supabase DB"}
 
 # --- PRODUCTS ---
 

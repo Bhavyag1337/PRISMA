@@ -1,5 +1,4 @@
-fastapi
-fastapi[standard]
+fastapi[all]
 uvicorn
 sqlalchemy
 pydantic
@@ -7,3 +6,4 @@ scikit-learn
 pandas
 numpy
 python-dotenv
+psycopg2-binary
