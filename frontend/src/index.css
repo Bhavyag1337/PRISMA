@@ -1,10 +1,22 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 @layer base {
+  :root {
+    --color-dark-bg: #0F172A;
+    --color-dark-card: #1E293B;
+    --color-dark-border: #334155;
+    --color-dark-text: #F8FAFC;
+    --color-dark-muted: #94A3B8;
+    --color-primary: #3B82F6;
+    --color-primary-hover: #2563EB;
+    --color-accent: #8B5CF6;
+    --color-success: #10B981;
+    --color-warning: #F59E0B;
+    --color-danger: #EF4444;
+  }
+
   * {
     box-sizing: border-box;
   }
@@ -18,21 +30,45 @@
   }
 
   body {
-    @apply bg-dark-bg text-dark-text font-sans antialiased;
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: var(--color-dark-bg);
+    color: var(--color-dark-text);
   }
 }
 
 @layer components {
   .card {
-    @apply min-w-0 bg-dark-card border border-dark-border rounded-xl shadow-lg p-6;
+    @apply min-w-0 border rounded-xl shadow-lg p-6;
+    background-color: var(--color-dark-card);
+    border-color: var(--color-dark-border);
   }
-  
+
   .btn-primary {
-    @apply bg-primary hover:bg-primary-hover text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2;
+    @apply text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2;
+    background-color: var(--color-primary);
   }
-  
+
+  .btn-primary:hover {
+    background-color: var(--color-primary-hover);
+  }
+
   .input-field {
-    @apply bg-dark-bg border border-dark-border text-dark-text text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 placeholder-dark-muted;
+    @apply text-sm rounded-lg block w-full p-2.5;
+    background-color: var(--color-dark-bg);
+    border-color: var(--color-dark-border);
+    color: var(--color-dark-text);
+  }
+
+  .input-field::placeholder {
+    color: var(--color-dark-muted);
+  }
+
+  .input-field:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    ring: 1px solid var(--color-primary);
   }
 }
 
@@ -43,14 +79,14 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #0F172A; 
+  background: var(--color-dark-bg);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #334155; 
+  background: var(--color-dark-border);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569; 
+  background: var(--color-dark-muted);
 }
