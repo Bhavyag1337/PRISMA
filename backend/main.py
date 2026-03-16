@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import date, timedelta
+from contextlib import asynccontextmanager
 import random
 import os
 
@@ -12,7 +13,16 @@ import models
 import schemas
 from ml_engine import predict_demand, get_recommendations
 
-app = FastAPI(title="PRISMA (Predictive Retail Intelligence & Sales Management Analytics)")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    yield
+
+
+app = FastAPI(
+    title="PRISMA (Predictive Retail Intelligence & Sales Management Analytics)",
+    lifespan=lifespan,
+)
 
 # Configure CORS
 app.add_middleware(
@@ -22,11 +32,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Initialize DB tables automatically on startup (simple way to ensure sqlite is ready)
-@app.on_event("startup")
-def startup_event():
-    Base.metadata.create_all(bind=engine)
 
 @app.get("/")
 def read_root():
