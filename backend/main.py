@@ -21,6 +21,11 @@ from ml_engine import predict_demand, get_recommendations
 
 load_dotenv()
 
+AI_PROVIDER = os.getenv("AI_PROVIDER", "gemini")
+AI_BASE_URL = os.getenv("AI_BASE_URL", "https://api.openai.com/v1")
+AI_API_KEY = os.getenv("AI_API_KEY")
+AI_MODEL = os.getenv("AI_MODEL", "gpt-4o-mini")
+
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
@@ -254,6 +259,87 @@ def _build_business_context(db: Session) -> str:
     )
 
 
+def _system_prompt() -> str:
+    return (
+        "You are PRISMA AI, a concise retail operations assistant. "
+        "Use only the provided business context when answering product or stock questions. "
+        "If data is missing, say you do not have enough data. Keep responses under 120 words."
+    )
+
+
+def _extract_openai_compatible_text(data: dict) -> str:
+    choices = data.get("choices", [])
+    if not choices:
+        return ""
+
+    message = choices[0].get("message", {})
+    content = message.get("content", "")
+
+    if isinstance(content, str):
+        return content.strip()
+
+    if isinstance(content, list):
+        text_parts = []
+        for part in content:
+            if isinstance(part, dict) and part.get("type") == "text":
+                text_parts.append(part.get("text", ""))
+        return "\n".join([t for t in text_parts if t]).strip()
+
+    return ""
+
+
+def _call_openai_compatible(user_message: str, context: str) -> str:
+    if not AI_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="Missing AI_API_KEY. Add it to backend/.env and restart backend.",
+        )
+
+    endpoint = f"{AI_BASE_URL.rstrip('/')}/chat/completions"
+    payload = {
+        "model": AI_MODEL,
+        "messages": [
+            {"role": "system", "content": _system_prompt()},
+            {
+                "role": "user",
+                "content": f"Business context:\n{context}\n\nUser question: {user_message}",
+            },
+        ],
+        "temperature": 0.5,
+        "max_tokens": 300,
+    }
+
+    req = urlrequest.Request(
+        endpoint,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {AI_API_KEY}",
+        },
+        method="POST",
+    )
+
+    try:
+        with urlrequest.urlopen(req, timeout=25) as response:
+            raw = response.read().decode("utf-8")
+            data = json.loads(raw)
+    except urlerror.HTTPError as e:
+        details = e.read().decode("utf-8", errors="ignore")
+        if e.code == 429:
+            raise HTTPException(
+                status_code=429,
+                detail="AI provider quota exceeded. Please retry later or upgrade your plan.",
+            ) from e
+        raise HTTPException(status_code=502, detail=f"AI provider error: {details}") from e
+    except urlerror.URLError as e:
+        raise HTTPException(status_code=502, detail="Unable to reach AI provider API") from e
+
+    text = _extract_openai_compatible_text(data)
+    if not text:
+        return "I could not generate a response right now. Please try again."
+    return text
+
+
 def _call_gemini(user_message: str, context: str) -> str:
     if not GEMINI_API_KEY:
         raise HTTPException(
@@ -261,11 +347,7 @@ def _call_gemini(user_message: str, context: str) -> str:
             detail="Missing GEMINI_API_KEY. Add it to backend/.env and restart backend.",
         )
 
-    system_prompt = (
-        "You are PRISMA AI, a concise retail operations assistant. "
-        "Use only the provided business context when answering product or stock questions. "
-        "If data is missing, say you do not have enough data. Keep responses under 120 words."
-    )
+    system_prompt = _system_prompt()
 
     payload = {
         "contents": [
@@ -356,6 +438,29 @@ def _call_gemini(user_message: str, context: str) -> str:
     return "\n".join(text_parts).strip()
 
 
+def _call_ai_provider(user_message: str, context: str) -> str:
+    provider = AI_PROVIDER.strip().lower()
+
+    if provider in ["openai", "openai-compatible", "openrouter", "groq", "together", "custom"]:
+        return _call_openai_compatible(user_message, context)
+
+    if provider == "gemini":
+        return _call_gemini(user_message, context)
+
+    if provider == "auto":
+        if AI_API_KEY:
+            return _call_openai_compatible(user_message, context)
+        return _call_gemini(user_message, context)
+
+    raise HTTPException(
+        status_code=500,
+        detail=(
+            "Invalid AI_PROVIDER. Supported values: gemini, openai-compatible, openai, "
+            "openrouter, groq, together, custom, auto"
+        ),
+    )
+
+
 def _fallback_chat_reply(user_message: str, db: Session) -> str:
     query = user_message.lower()
 
@@ -389,11 +494,11 @@ def chatbot(request: ChatRequest, db: Session = Depends(get_db)):
 
     business_context = _build_business_context(db)
     try:
-        reply = _call_gemini(request.message.strip(), business_context)
+        reply = _call_ai_provider(request.message.strip(), business_context)
     except HTTPException as exc:
         if exc.status_code == 429:
             fallback = _fallback_chat_reply(request.message.strip(), db)
-            return {"reply": f"{fallback} (Gemini quota exceeded)"}
+            return {"reply": f"{fallback} (AI provider quota exceeded)"}
         raise
 
     return {"reply": reply}
