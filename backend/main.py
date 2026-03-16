@@ -6,7 +6,7 @@ from typing import List
 from datetime import date, timedelta
 from contextlib import asynccontextmanager
 import random
-import os
+import uvicorn
 
 from database import engine, get_db, Base
 import models
@@ -85,6 +85,7 @@ def create_order(order: schemas.OrderCreate, db: Session = Depends(get_db)):
 # --- SALES ANALYTICS ---
 
 @app.get("/sales/analytics")
+@app.get("/dashboard/summary")
 def get_sales_analytics(db: Session = Depends(get_db)):
     orders = db.query(models.Order).all()
     
@@ -163,6 +164,7 @@ def recommend_products(product_id: int, db: Session = Depends(get_db)):
 # --- INVENTORY ALERTS ---
 
 @app.get("/inventory-alerts")
+@app.get("/stock/alerts")
 def get_inventory_alerts(db: Session = Depends(get_db)):
     threshold = 10
     low_stock = db.query(models.Product).filter(models.Product.stock < threshold).all()
@@ -229,3 +231,7 @@ def chatbot(request: ChatRequest, db: Session = Depends(get_db)):
         return {"reply": "You can check product availability directly from the dashboard."}
         
     return {"reply": "I'm the PRISMA virtual assistant. I can help with product availability, information, and recommendations!"}
+
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
