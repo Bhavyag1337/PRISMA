@@ -5,6 +5,12 @@ from sqlalchemy.orm import Session
 from typing import List
 from datetime import date, timedelta
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+import os
+import json
+import re
+from urllib import request as urlrequest
+from urllib import error as urlerror
 import random
 import uvicorn
 
@@ -12,6 +18,11 @@ from database import engine, get_db, Base
 import models
 import schemas
 from ml_engine import predict_demand, get_recommendations
+
+load_dotenv()
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -218,19 +229,174 @@ def update_product_price(product_id: int, db: Session = Depends(get_db)):
 class ChatRequest(BaseModel):
     message: str
 
+
+def _build_business_context(db: Session) -> str:
+    products = db.query(models.Product).limit(25).all()
+    low_stock = db.query(models.Product).filter(models.Product.stock < 10).limit(10).all()
+
+    if not products:
+        return "No products are currently available in the system."
+
+    product_lines = [
+        f"- {p.name} | category: {p.category} | price: ${p.price:.2f} | stock: {p.stock}"
+        for p in products
+    ]
+    low_stock_lines = [f"- {p.name} ({p.stock} left)" for p in low_stock] or ["- None"]
+
+    return "\n".join(
+        [
+            "Product catalog snapshot:",
+            *product_lines,
+            "",
+            "Low stock items (<10):",
+            *low_stock_lines,
+        ]
+    )
+
+
+def _call_gemini(user_message: str, context: str) -> str:
+    if not GEMINI_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="Missing GEMINI_API_KEY. Add it to backend/.env and restart backend.",
+        )
+
+    system_prompt = (
+        "You are PRISMA AI, a concise retail operations assistant. "
+        "Use only the provided business context when answering product or stock questions. "
+        "If data is missing, say you do not have enough data. Keep responses under 120 words."
+    )
+
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {
+                        "text": (
+                            f"{system_prompt}\n\n"
+                            f"Business context:\n{context}\n\n"
+                            f"User question: {user_message}"
+                        )
+                    }
+                ]
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.5,
+            "maxOutputTokens": 300,
+        },
+    }
+
+    fallback_models = [
+        GEMINI_MODEL,
+        "gemini-2.0-flash",
+        "gemini-2.0-flash-lite",
+        "gemini-1.5-pro",
+    ]
+    tried_models = []
+    last_error_detail = ""
+
+    for model in fallback_models:
+        clean_model = model.replace("models/", "").strip()
+        if not clean_model or clean_model in tried_models:
+            continue
+        tried_models.append(clean_model)
+
+        endpoint = (
+            f"https://generativelanguage.googleapis.com/v1beta/models/{clean_model}:generateContent"
+            f"?key={GEMINI_API_KEY}"
+        )
+
+        req = urlrequest.Request(
+            endpoint,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+
+        try:
+            with urlrequest.urlopen(req, timeout=25) as response:
+                raw = response.read().decode("utf-8")
+                data = json.loads(raw)
+            break
+        except urlerror.HTTPError as e:
+            details = e.read().decode("utf-8", errors="ignore")
+            last_error_detail = details
+            if e.code == 404:
+                continue
+            if e.code == 429:
+                retry_match = re.search(r'"retryDelay"\s*:\s*"([^"]+)"', details)
+                retry_hint = retry_match.group(1) if retry_match else "a short while"
+                raise HTTPException(
+                    status_code=429,
+                    detail=f"Gemini quota exceeded. Please retry in {retry_hint} or check billing/quota.",
+                ) from e
+            raise HTTPException(status_code=502, detail=f"Gemini API error: {details}") from e
+        except urlerror.URLError as e:
+            raise HTTPException(status_code=502, detail="Unable to reach Gemini API") from e
+    else:
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "No supported Gemini model was available. "
+                f"Tried: {', '.join(tried_models)}. "
+                f"Last API response: {last_error_detail}"
+            ),
+        )
+
+    candidates = data.get("candidates", [])
+    if not candidates:
+        return "I could not generate a response right now. Please try again."
+
+    parts = candidates[0].get("content", {}).get("parts", [])
+    text_parts = [p.get("text", "") for p in parts if p.get("text")]
+    if not text_parts:
+        return "I could not generate a response right now. Please try again."
+
+    return "\n".join(text_parts).strip()
+
+
+def _fallback_chat_reply(user_message: str, db: Session) -> str:
+    query = user_message.lower()
+
+    if "stock" in query or "available" in query:
+        low_stock = db.query(models.Product).filter(models.Product.stock < 10).limit(5).all()
+        if not low_stock:
+            return "All tracked products are currently above low-stock threshold in the dashboard."
+        names = ", ".join([f"{p.name} ({p.stock} left)" for p in low_stock])
+        return f"Low-stock items right now: {names}."
+
+    if "recommend" in query:
+        top_products = db.query(models.Product).order_by(models.Product.stock.desc()).limit(3).all()
+        if top_products:
+            names = ", ".join([p.name for p in top_products])
+            return f"You can start with these popular in-stock options: {names}."
+        return "I can recommend products once your catalog has items."
+
+    if "time" in query or "open" in query or "store" in query:
+        return "Store timing is not configured in PRISMA yet. Add it to your business profile if needed."
+
+    return (
+        "Gemini quota is temporarily exceeded, so I am in basic mode. "
+        "You can still ask about stock alerts, products, and recommendations from dashboard data."
+    )
+
+
 @app.post("/chat")
 def chatbot(request: ChatRequest, db: Session = Depends(get_db)):
-    # Mock Open-AI style response
-    query = request.message.lower()
-    
-    if "recommend" in query:
-        return {"reply": "I recommend our fresh artisan bread, it pairs well with our organic butter!"}
-    if "time" in query or "open" in query or "store" in query:
-        return {"reply": "Our store is open from 8 AM to 10 PM every day."}
-    if "stock" in query or "available" in query:
-        return {"reply": "You can check product availability directly from the dashboard."}
-        
-    return {"reply": "I'm the PRISMA virtual assistant. I can help with product availability, information, and recommendations!"}
+    if not request.message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
+    business_context = _build_business_context(db)
+    try:
+        reply = _call_gemini(request.message.strip(), business_context)
+    except HTTPException as exc:
+        if exc.status_code == 429:
+            fallback = _fallback_chat_reply(request.message.strip(), db)
+            return {"reply": f"{fallback} (Gemini quota exceeded)"}
+        raise
+
+    return {"reply": reply}
 
 
 if __name__ == "__main__":
