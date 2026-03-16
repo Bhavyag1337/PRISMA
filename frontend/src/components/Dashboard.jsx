@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { TrendingUp, Package, DollarSign, AlertTriangle } from 'lucide-react';
 import api from '../api';
 
@@ -12,8 +12,8 @@ export default function Dashboard() {
     const fetchData = async () => {
       try {
         const [salesRes, alertsRes] = await Promise.all([
-          api.get('/sales/analytics'),
-          api.get('/inventory-alerts')
+          api.get('/dashboard/summary'),
+          api.get('/stock/alerts')
         ]);
         setSalesData(salesRes.data);
         setAlerts(alertsRes.data.alerts);
@@ -31,7 +31,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500 min-w-0">
       
       {/* Top Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -79,12 +79,12 @@ export default function Dashboard() {
       </div>
 
       {/* Main Charts Area */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-w-0">
         
         {/* Revenue Chart */}
-        <div className="card lg:col-span-2 space-y-4">
+        <div className="card lg:col-span-2 space-y-4 min-w-0">
           <h3 className="text-lg font-semibold text-white">Revenue Trends</h3>
-          <div className="h-72">
+          <div className="h-72 w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={salesData?.monthly_revenue}>
                 <defs>
@@ -93,7 +93,7 @@ export default function Dashboard() {
                     <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={False} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
                 <XAxis dataKey="month" stroke="#94A3B8" tick={{fill: '#94A3B8'}} />
                 <YAxis stroke="#94A3B8" tick={{fill: '#94A3B8'}} tickFormatter={(value) => `$${value}`} />
                 <Tooltip 
@@ -107,12 +107,12 @@ export default function Dashboard() {
         </div>
 
         {/* Top Products */}
-        <div className="card space-y-4">
+        <div className="card space-y-4 min-w-0">
           <h3 className="text-lg font-semibold text-white">Top Selling Products</h3>
-          <div className="h-72">
+          <div className="h-72 w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={salesData?.top_selling_products} layout="vertical" margin={{top: 5, right: 30, left: 40, bottom: 5}}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={False} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
                 <XAxis type="number" stroke="#94A3B8" />
                 <YAxis dataKey="name" type="category" stroke="#94A3B8" width={80} tick={{fill: '#94A3B8', fontSize: 12}} />
                 <Tooltip cursor={{fill: '#334155'}} contentStyle={{ backgroundColor: '#1E293B', borderColor: '#334155', borderRadius: '8px' }} />
