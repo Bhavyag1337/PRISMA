@@ -3,6 +3,7 @@ import { LayoutDashboard, PackageSearch, MessageSquareText, Settings, Bell } fro
 import Dashboard from './components/Dashboard';
 import Products from './components/Products';
 import Chatbot from './components/Chatbot';
+import './App.css';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -40,7 +41,7 @@ function App() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col relative">
+      <main className="flex-1 min-w-0 flex flex-col relative">
         {/* Header */}
         <header className="h-16 border-b border-dark-border bg-dark-bg/80 backdrop-blur-md flex items-center justify-between px-8 z-10">
           <h2 className="text-lg font-semibold capitalize text-white">{activeTab.replace('-', ' ')}</h2>
@@ -54,8 +55,8 @@ function App() {
         </header>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-auto p-8 relative">
-          <div className="max-w-7xl mx-auto space-y-8">
+        <div className="flex-1 min-w-0 overflow-auto p-8 relative">
+          <div className="max-w-7xl mx-auto space-y-8 min-w-0">
             {activeTab === 'dashboard' && <Dashboard />}
             {activeTab === 'products' && <Products />}
           </div>
