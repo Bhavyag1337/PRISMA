@@ -1,9 +1,10 @@
 fastapi[all]
 uvicorn
-sqlalchemy
+sqlalchemy[postgresql]
 pydantic
 scikit-learn
 pandas
 numpy
 python-dotenv
 psycopg2-binary
+psycopg2

@@ -12,11 +12,11 @@ export default function Dashboard() {
     const fetchData = async () => {
       try {
         const [salesRes, alertsRes] = await Promise.all([
-          api.get('/dashboard/summary'),
-          api.get('/stock/alerts')
+          api.get('/analytics/dashboard/summary'),
+          api.get('/inventory/alerts')
         ]);
         setSalesData(salesRes.data);
-        setAlerts(alertsRes.data.alerts);
+        setAlerts(alertsRes.data);
       } catch (error) {
         console.error("Error fetching dashboard data", error);
       } finally {

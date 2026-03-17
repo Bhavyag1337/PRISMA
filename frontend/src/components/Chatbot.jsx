@@ -75,21 +75,21 @@ export default function Chatbot() {
         )}
       </div>
 
-      <div className="p-3 border-t border-dark-border bg-dark-card">
-        <form onSubmit={sendMessage} className="relative flex items-center">
+      <div className="p-4 border-t border-dark-border bg-dark-card/50 backdrop-blur-xl">
+        <form onSubmit={sendMessage} className="relative flex items-center group">
           <input 
             type="text" 
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask PRISMA anything..."
-            className="input-field pr-12 rounded-full border-dark-border bg-dark-bg focus:ring-accent focus:border-accent"
+            className="w-full bg-dark-bg border border-dark-border rounded-2xl py-3 pl-5 pr-12 text-white text-sm focus:border-primary/50 outline-none transition-all group-hover:border-dark-border/80"
           />
           <button 
             type="submit" 
             disabled={isLoading || !input.trim()}
-            className="absolute right-2 p-1.5 bg-accent hover:bg-violet-600 text-white rounded-full transition-colors disabled:opacity-50"
+            className="absolute right-2 p-2 bg-primary text-black rounded-xl shadow-neon transition-all hover:shadow-neon-strong active:scale-90 disabled:opacity-50 disabled:shadow-none"
           >
-             <Send size={16} className="ml-0.5" />
+             <Send size={18} />
           </button>
         </form>
       </div>

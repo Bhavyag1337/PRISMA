@@ -1,90 +1,65 @@
 import { useState } from 'react';
-import { LayoutDashboard, PackageSearch, MessageSquareText, Settings, Bell } from 'lucide-react';
-import Dashboard from './components/Dashboard';
-import Products from './components/Products';
+import MainLayout from './layouts/MainLayout';
+import Dashboard from './pages/Dashboard';
+import Analytics from './pages/Analytics';
+import Inventory from './pages/Inventory';
+import Customers from './pages/Customers';
+import Recommendations from './pages/Recommendations';
 import Chatbot from './components/Chatbot';
-import './App.css';
+import { MessageSquareText } from 'lucide-react';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isChatOpen, setIsChatOpen] = useState(false);
 
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'dashboard': return <Dashboard />;
+      case 'analytics': return <Analytics />;
+      case 'inventory': return <Inventory />;
+      case 'customers': return <Customers />;
+      case 'recommendations': return <Recommendations />;
+      default: return <Dashboard />;
+    }
+  };
+
   return (
-    <div className="flex h-screen overflow-hidden bg-dark-bg text-dark-text font-sans">
-      {/* Sidebar */}
-      <aside className="w-64 bg-dark-card border-r border-dark-border flex flex-col">
-        <div className="p-6 flex items-center gap-3">
-          <div className="w-8 h-8 rounded bg-primary flex items-center justify-center font-bold text-lg shadow-lg">P</div>
-          <h1 className="text-xl font-bold tracking-tight text-white">PRISMA</h1>
-        </div>
-        
-        <nav className="flex-1 px-4 py-6 space-y-2">
-          <button 
-            onClick={() => setActiveTab('dashboard')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'dashboard' ? 'bg-primary/10 text-primary font-medium' : 'text-dark-muted hover:bg-dark-border/50 hover:text-white'}`}
-          >
-            <LayoutDashboard size={20} />
-            Dashboard
-          </button>
-          <button 
-            onClick={() => setActiveTab('products')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'products' ? 'bg-primary/10 text-primary font-medium' : 'text-dark-muted hover:bg-dark-border/50 hover:text-white'}`}
-          >
-            <PackageSearch size={20} />
-            Products & ML
-          </button>
-        </nav>
+    <MainLayout activeTab={activeTab} setActiveTab={setActiveTab}>
+      {renderContent()}
 
-        <div className="p-4 border-t border-dark-border text-sm text-dark-muted text-center">
-          Smart Retail system
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 min-w-0 flex flex-col relative">
-        {/* Header */}
-        <header className="h-16 border-b border-dark-border bg-dark-bg/80 backdrop-blur-md flex items-center justify-between px-8 z-10">
-          <h2 className="text-lg font-semibold capitalize text-white">{activeTab.replace('-', ' ')}</h2>
-          <div className="flex items-center gap-4">
-            <button className="p-2 text-dark-muted hover:text-white transition-colors relative">
-               <Bell size={20} />
-               <span className="absolute top-1 right-1 w-2 h-2 bg-danger rounded-full"></span>
-            </button>
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent border border-dark-border shadow-sm"></div>
-          </div>
-        </header>
-
-        {/* Scrollable Content */}
-        <div className="flex-1 min-w-0 overflow-auto p-8 relative">
-          <div className="max-w-7xl mx-auto space-y-8 min-w-0">
-            {activeTab === 'dashboard' && <Dashboard />}
-            {activeTab === 'products' && <Products />}
-          </div>
-        </div>
-        
-        {/* Chatbot Toggle Button */}
+      {/* Modern Chatbot Integration */}
+      <div className="fixed bottom-8 right-8 z-50">
         <button 
           onClick={() => setIsChatOpen(!isChatOpen)}
-          className="fixed bottom-6 right-6 p-4 rounded-full bg-primary hover:bg-primary-hover text-white shadow-xl shadow-primary/20 transition-transform hover:scale-105 z-50 flex items-center gap-2"
+          className={`p-5 rounded-3xl shadow-neon transition-all duration-500 hover:scale-110 active:scale-95 flex items-center gap-3 group ${
+            isChatOpen ? 'bg-white text-black rotate-90' : 'bg-primary text-black'
+          }`}
         >
-          <MessageSquareText size={24} />
+          <MessageSquareText size={28} className="group-hover:rotate-12 transition-transform" />
+          {!isChatOpen && <span className="font-black text-xs uppercase tracking-widest mr-2 hidden sm:block">AI Assistant</span>}
         </button>
 
-        {/* Chatbot Panel */}
         {isChatOpen && (
-          <div className="fixed bottom-24 right-6 w-96 max-h-[600px] h-[80vh] bg-dark-card border border-dark-border rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 fade-in duration-200">
-            <div className="p-4 border-b border-dark-border bg-dark-bg flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-success rounded-full animate-pulse"></div>
-                <h3 className="font-medium text-white">PRISMA Assistant</h3>
+          <div className="absolute bottom-24 right-0 w-96 max-h-[600px] h-[70vh] bg-dark-card border border-dark-border rounded-[2rem] shadow-neon-strong z-50 flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 fade-in duration-500">
+            <div className="p-6 border-b border-dark-border bg-dark-bg/50 backdrop-blur-xl flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 bg-primary rounded-full animate-pulse shadow-neon" />
+                <h3 className="font-black text-white uppercase tracking-widest text-sm">PRISMA AI</h3>
               </div>
-              <button onClick={() => setIsChatOpen(false)} className="text-dark-muted hover:text-white">✕</button>
+              <button 
+                onClick={() => setIsChatOpen(false)} 
+                className="text-dark-muted hover:text-white transition-colors"
+              >
+                <div className="w-8 h-8 rounded-full border border-dark-border flex items-center justify-center">✕</div>
+              </button>
             </div>
-            <Chatbot />
+            <div className="flex-1 overflow-hidden bg-dark-card/30">
+              <Chatbot />
+            </div>
           </div>
         )}
-      </main>
-    </div>
+      </div>
+    </MainLayout>
   );
 }
 
